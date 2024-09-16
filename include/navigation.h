@@ -1,23 +1,25 @@
+//导航头文件
+//使用示例
+//NAVI_DATA_PACKET* navidata = readNaviData(DATA_PREFER_BOTH | NAVSYS_PREDER_BOTH);
 #include <Arduino.h>
 
 #define NAVMOD_LOCATION 0x1
 #define NAVMOD_VELOCITY 0x2
 #define NAVMOD_BOTH 0x3
-
 #define NAVSYS_GPS 0x4
 #define NAVSYS_BDS 0x8
 #define NAVSYS_BOTH 0xc
-
-
 #define DATA_PREFER_LOC NAVMOD_LOCATION
 #define DATA_PREFER_VEL NAVMOD_VELOCITY
 #define DATA_PREFER_BOTH NAVMOD_BOTH
 #define NAVSYS_PREFER_GPS NAVSYS_GPS
 #define NAVSYS_PREFER_BDS NAVSYS_BDS
 #define NAVSYS_PREDER_BOTH NAVSYS_BOTH
+
 typedef struct _NAVI_DATA_PACKET
 {
-    byte mode : 4;
+    byte mode : 2;
+    byte datacnt : 2;
     byte sys : 4;
     union
     {
@@ -45,6 +47,17 @@ typedef struct _NAVI_DATA_PACKET
     }data;
     
 }NAVI_DATA_PACKET;
+
+/*
+获得当前位置或速度信息
+prefer是一个位掩码，使用时记得按位或上需要的标志：
+DATA_PREFER_LOC NAVMOD_LOCATION 需要位置信息
+DATA_PREFER_VEL NAVMOD_VELOCITY 需要速度信息
+DATA_PREFER_BOTH NAVMOD_BOTH    都要
+NAVSYS_PREFER_GPS NAVSYS_GPS    使用GPS
+NAVSYS_PREFER_BDS NAVSYS_BDS    使用北斗导航
+NAVSYS_PREDER_BOTH NAVSYS_BOTH  双导航系统
+*/
 NAVI_DATA_PACKET* readNaviData(byte prefer)
 {
     char raw[100] = {0};
@@ -71,14 +84,16 @@ NAVI_DATA_PACKET* readNaviData(byte prefer)
     {
         datacnt = 2;
         navidat = (NAVI_DATA_PACKET*)malloc(2 * sizeof(NAVI_DATA_PACKET));
+        navidat[0].datacnt = navidat[1].datacnt = datacnt;
     }
     else
     {
         datacnt = 1;
         navidat = (NAVI_DATA_PACKET*)malloc(sizeof(NAVI_DATA_PACKET));
+        navidat -> datacnt = datacnt;
     }
     byte navmod = -1, navsys = -1, existed = 0;
-    for(int i = 0; i < n; i++)
+    for(int i = 0; i < n && datacur < datacnt; i++)
     {
         char* cur = splitPtr[i];
         if(*cur != '$') continue;
@@ -96,6 +111,7 @@ NAVI_DATA_PACKET* readNaviData(byte prefer)
             if(!(prefer & NAVSYS_PREFER_GPS)) continue;
             navsys = NAVSYS_GPS; //GPS
         }
+        navidat[datacur].sys = navsys;
         //判断导航模式
         if(strcmp(cur + 3, "GGA"))
         {
