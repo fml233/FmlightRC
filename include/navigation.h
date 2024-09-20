@@ -1,7 +1,7 @@
 //导航头文件
 //使用示例
 //NAVI_DATA_PACKET* navidata = readNaviData(DATA_PREFER_BOTH | NAVSYS_PREDER_BOTH);
-#include <Arduino.h>
+#include "hal.h"
 
 #define NAVMOD_LOCATION 0x1
 #define NAVMOD_VELOCITY 0x2
@@ -19,7 +19,7 @@
 typedef struct _NAVI_DATA_PACKET
 {
     byte mode : 2;
-    byte datacnt : 2;
+    _NAVI_DATA_PACKET* next;
     byte sys : 4;
     union
     {
@@ -46,7 +46,7 @@ typedef struct _NAVI_DATA_PACKET
         
     }data;
     
-}NAVI_DATA_PACKET;
+}NAVI_DATA_PACKET, *PNAVI_DATA_PACKET;
 
 /*
 获得当前位置或速度信息
@@ -58,124 +58,83 @@ NAVSYS_PREFER_GPS NAVSYS_GPS    使用GPS
 NAVSYS_PREFER_BDS NAVSYS_BDS    使用北斗导航
 NAVSYS_PREDER_BOTH NAVSYS_BOTH  双导航系统
 */
-NAVI_DATA_PACKET* readNaviData(byte prefer)
+NAVI_DATA_PACKET* readNaviData()
 {
     char raw[100] = {0};
     char* splitPtr[20] = {raw};
     byte n = 0;
-    for(int i = 0; Serial1.available() > 0; i++)
+    byte rawLen = HalReadNav((byte*)raw, sizeof(raw));
+    for(int i = 0; i < rawLen; i++)
     {
-        byte readbyte = Serial1.read();
-        if(readbyte == '\r')
-        {
-            continue;
-        }
-        if(readbyte == '\n' || readbyte == ',')
+        if(raw[i] == ',')
         {
             raw[i] = 0;
-            splitPtr[n++] = raw + i + 1;
-            continue;
+            splitPtr[++n] = raw + i + 1;
         }
-        raw[i] = readbyte;
     }
-    NAVI_DATA_PACKET* navidat = 0;
+    PNAVI_DATA_PACKET head = (PNAVI_DATA_PACKET)malloc(sizeof(NAVI_DATA_PACKET)), prepacket = head, curpacket = 0;
     byte datacnt = 0, datacur = 0;
-    if(prefer == DATA_PREFER_BOTH)
-    {
-        datacnt = 2;
-        navidat = (NAVI_DATA_PACKET*)malloc(2 * sizeof(NAVI_DATA_PACKET));
-        navidat[0].datacnt = navidat[1].datacnt = datacnt;
-    }
-    else
-    {
-        datacnt = 1;
-        navidat = (NAVI_DATA_PACKET*)malloc(sizeof(NAVI_DATA_PACKET));
-        navidat -> datacnt = datacnt;
-    }
     byte navmod = -1, navsys = -1, existed = 0;
-    for(int i = 0; i < n && datacur < datacnt; i++)
+    for(int i = 0; i < n; i++)
     {
         char* cur = splitPtr[i];
         if(*cur != '$') continue;
+        curpacket = (PNAVI_DATA_PACKET)malloc(sizeof(NAVI_DATA_PACKET));
+        prepacket->next = curpacket;
+        prepacket = curpacket;
         //判断导航系统
         if(strcmp(cur, "$GNGGA")) {
-            if((prefer & NAVSYS_PREFER_BDS) && (prefer & NAVSYS_PREFER_GPS))
-                navsys = NAVSYS_BOTH;       //Both
-            else continue;
+            navsys = NAVSYS_BOTH;       //都有
         } 
         else if(strcmp(cur, "BDGGA")) {
-            if(!(prefer & NAVSYS_PREFER_BDS)) continue;
             navsys = NAVSYS_BDS;  //BDS
         } 
         else if(strcmp(cur, "$GPGGA")) {
-            if(!(prefer & NAVSYS_PREFER_GPS)) continue;
             navsys = NAVSYS_GPS; //GPS
         }
-        navidat[datacur].sys = navsys;
+        curpacket->sys = navsys;
         //判断导航模式
         if(strcmp(cur + 3, "GGA"))
         {
             navmod |= NAVMOD_LOCATION;
-            if(!(prefer & NAVMOD_LOCATION) || existed & NAVMOD_LOCATION) continue;
-            navidat[datacur].data.location.utc = atoi(cur + 1);
-            navidat[datacur].data.location.latitude = atof(cur + 2);
-            navidat[datacur].data.location.ladir = *(cur + 3) == 'N' ? 0 : 1;
-            navidat[datacur].data.location.longtitude = atof(cur + 4);
-            navidat[datacur].data.location.lodir = *(cur + 5) == 'W' ? 0 : 1;
-            navidat[datacur].data.location.gpsmode = atoi(cur + 6);
-            /*
-            navidat[datacur].data.location.satcnt = atoi(cur + 7);
-            navidat[datacur].data.location.haafactor = atof(cur + 8) * 10;
-            navidat[datacur].data.location.height = atof(cur + 9);
-            */
-            navidat[datacur].mode = navmod;
-            existed != navmod;
-            datacur++;
+            curpacket->data.location.utc = atoi(cur + 1);
+            curpacket->data.location.latitude = atof(cur + 2);
+            curpacket->data.location.ladir = *(cur + 3) == 'N' ? 0 : 1;
+            curpacket->data.location.longtitude = atof(cur + 4);
+            curpacket->data.location.lodir = *(cur + 5) == 'W' ? 0 : 1;
+            curpacket->data.location.gpsmode = atoi(cur + 6);
+            curpacket->mode = navmod;
         } 
         else if(strcmp(cur + 3, "GLL"))
         {
             navmod |= NAVMOD_LOCATION;
-            if(!(prefer & NAVMOD_LOCATION) || existed & NAVMOD_LOCATION) continue;
-            navidat[datacur].data.location.utc = atoi(cur + 5);
-            navidat[datacur].data.location.latitude = atof(cur + 1);
-            navidat[datacur].data.location.ladir = *(cur + 2) == 'N' ? 0 : 1;
-            navidat[datacur].data.location.longtitude = atof(cur + 3);
-            navidat[datacur].data.location.lodir = *(cur + 4) == 'W' ? 0 : 1;
-            navidat[datacur].data.location.gpsmode = *(cur + 6) == 'A' ? 1 : 0;
-            navidat[datacur].mode = navmod; 
-            existed != navmod;       
-            datacur++;
+            curpacket->data.location.utc = atoi(cur + 5);
+            curpacket->data.location.latitude = atof(cur + 1);
+            curpacket->data.location.ladir = *(cur + 2) == 'N' ? 0 : 1;
+            curpacket->data.location.longtitude = atof(cur + 3);
+            curpacket->data.location.lodir = *(cur + 4) == 'W' ? 0 : 1;
+            curpacket->data.location.gpsmode = *(cur + 6) == 'A' ? 1 : 0;
+            curpacket->mode = navmod;
         } 
         else if(strcmp(cur + 3, "VTG"))
         {
-            navmod = NAVMOD_VELOCITY;
-            if(!(prefer & NAVMOD_VELOCITY) || existed & NAVMOD_VELOCITY) continue;
-            navidat[datacur].data.velocity.direction = atof(cur + 1);
-            navidat[datacur].data.velocity.gndspeed = atof(cur + 5);
-            navidat[datacur].data.velocity.horspeed = atof(cur + 7);
-            navidat[datacur].mode = navmod;
-            existed != navmod;
-            datacur++;
+            navmod |= NAVMOD_VELOCITY;
+            curpacket->data.velocity.direction = atof(cur + 1);
+            curpacket->data.velocity.gndspeed = atof(cur + 5);
+            curpacket->data.velocity.horspeed = atof(cur + 7);
+            curpacket->mode = navmod;
         } else if(strcmp(cur + 3, "RMC"))
         {
-            if((prefer & NAVMOD_LOCATION) && !(existed & NAVMOD_LOCATION))
-            {
-                navmod = NAVMOD_LOCATION;
-                navidat[datacur].data.location.utc = atoi(cur + 1);
-                navidat[datacur].data.location.latitude = atof(cur + 3);
-                navidat[datacur].data.location.ladir = *(cur + 4) == 'N' ? 0 : 1;
-                navidat[datacur].data.location.longtitude = atof(cur + 5);
-                navidat[datacur].data.location.lodir = *(cur + 6) == 'W' ? 0 : 1;
-                datacur++;
-            }
-            if((prefer & NAVMOD_VELOCITY) && !(existed & NAVMOD_VELOCITY))
-            {
-                navmod = NAVMOD_VELOCITY;
-                navidat[datacur].data.velocity.direction = atof(cur + 8);
-                navidat[datacur].data.velocity.gndspeed = atof(cur + 7);
-                datacur++;
-            }
+            navmod |= NAVMOD_LOCATION;
+            curpacket->data.location.utc = atoi(cur + 1);
+            curpacket->data.location.latitude = atof(cur + 3);
+            curpacket->data.location.ladir = *(cur + 4) == 'N' ? 0 : 1;
+            curpacket->data.location.longtitude = atof(cur + 5);
+            curpacket->data.location.lodir = *(cur + 6) == 'W' ? 0 : 1;
+            navmod |= NAVMOD_VELOCITY;
+            curpacket->data.velocity.direction = atof(cur + 8);
+            curpacket->data.velocity.gndspeed = atof(cur + 7);
         }
     }
-    return navidat;
+    return head;
 }
