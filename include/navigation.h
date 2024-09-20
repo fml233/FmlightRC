@@ -177,4 +177,5 @@ NAVI_DATA_PACKET* readNaviData(byte prefer)
             }
         }
     }
+    return navidat;
 }
