@@ -1,4 +1,9 @@
 #include "hal.h"
+int HalInitHardware()
+{
+
+}
+
 void HalWrite24GHz(const byte* buffer, int len)
 {
 
