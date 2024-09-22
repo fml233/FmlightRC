@@ -1,6 +1,7 @@
 #include "mpucalc.h"
 void MPU6050CALC::clock()
 {
+    getLock();
     float g = 9.81;
     short rax, ray, raz, rgx, rgy, rgz;
     getMotion6(&rax, &ray, &raz, &rgx, &rgy, &rgz);
@@ -36,26 +37,35 @@ void MPU6050CALC::clock()
     x += vel_x * deltaT;
     y += vel_y * deltaT;
     z += vel_z * deltaT;
+    freeLock();
 }
 void MPU6050CALC::getAcc(double* x, double* y, double* z)
 {
+    getLock();
     *x = acc_x;
     *y = acc_y;
     *z = acc_z;
+    freeLock();
 }
 void MPU6050CALC::getVel(double* x, double* y, double* z)
 {
+    getLock();
     *x = vel_x;
     *y = vel_y;
     *z = vel_z;
+    freeLock();
 }
 void MPU6050CALC::getAng(double* x, double* y, double* z)
 {
+    getLock();
     *x = ang_x;
     *y = ang_y;
     *z = ang_z;
+    freeLock();
 }
 void MPU6050CALC::getForwardVelocity(double* v)
 {
+    getLock();
     *v = forward_vel;
+    freeLock();
 }

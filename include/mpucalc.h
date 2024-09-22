@@ -12,6 +12,16 @@ class MPU6050CALC : public MPU6050
     double x, y, z;
     hw_timer_t* timer;
     const double deltaT = 1 / MPU6050_READ_FREQUENCY;
+    volatile bool lock = false;
+    void getLock()
+    {
+        while(lock);
+        lock = true;
+    }
+    void freeLock()
+    {
+        lock = false;
+    }
 
     public:
     MPU6050CALC(uint8_t address, void (*clockFn)())
@@ -38,4 +48,14 @@ class MPU6050CALC : public MPU6050
     void getVel(double* x, double* y, double* z);
     //此函数返回*向前*的速度
     void getForwardVelocity(double* v);
+    void reset()
+    {
+        getLock();
+        acc_x = acc_y = acc_z = 0;
+        ang_x = ang_y = ang_z = 0;
+        vel_x = vel_y = vel_z = 0;
+        forward_vel = 0;
+        x = y = z = 0;
+        freeLock();
+    }
 };

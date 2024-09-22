@@ -1,7 +1,7 @@
 #include "hal.h"
 int HalInitHardware()
 {
-
+    return 1;
 }
 
 void HalWrite24GHz(const byte b)
