@@ -2,7 +2,8 @@
 #include "hal.h"
 #include "navigation.h"
 #include "mpucalc.h"
-MPU6050CALC mpu6050;
+void doClock();
+MPU6050CALC mpu6050(MPU6050_DEFAULT_ADDRESS, doClock);
 // put function declarations here:
 int myFunction(int, int);
 
