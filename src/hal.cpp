@@ -4,12 +4,12 @@ int HalInitHardware()
 
 }
 
-void HalWrite24GHz(const byte* buffer, int len)
+void HalWrite24GHz(const byte b)
 {
 
 }
 
-void HalRead24GHz(byte* buffer, int buffer_size)
+void HalRead24GHz(byte* b)
 {
 
 }
