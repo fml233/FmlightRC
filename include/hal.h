@@ -10,4 +10,4 @@ extern void HalRead24GHz(byte* buffer, int buffer_size);
 extern byte HalReadNav(byte* buffer, int buffer_size);
 //硬件常量
 //陀螺仪数据读取频率
-const int MPU6050_READ_FREQUENCY = 100;
+#define MPU6050_READ_FREQUENCY 100;
