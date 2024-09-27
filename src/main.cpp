@@ -4,23 +4,14 @@
 #include "mpucalc.h"
 void doClock();
 MPU6050CALC mpu6050(MPU6050_DEFAULT_ADDRESS, doClock);
-// put function declarations here:
-int myFunction(int, int);
-
 void setup() {
   // put your setup code here, to run once:
-  int result = myFunction(2, 3);
   HalInitHardware();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   mpu6050.clock();
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
 }
 
 void doClock()

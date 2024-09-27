@@ -1,6 +1,7 @@
 #include "hal.h"
 int HalInitHardware()
 {
+    
     return 1;
 }
 
