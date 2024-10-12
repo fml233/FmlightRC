@@ -6,5 +6,6 @@
         "ostream": "cpp",
         "sstream": "cpp",
         "cmath": "cpp"
-    }
+    },
+    "idf.portWin": "COM4"
 }
